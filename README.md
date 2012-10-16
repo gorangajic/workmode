@@ -1,23 +1,29 @@
+Install
+
 ```
 npm install workmode -g
 ```
 
 Add site to block list
+
 ```
   workmode add news.ycombinator.com
 ```
 
 Start workmode
+
 ```
   workmode start
 ```
 
 Stop workmode
+
 ```
   workmode stop
 ```
 
 List blocked sites
+
 ```
   workmode list
 ```
