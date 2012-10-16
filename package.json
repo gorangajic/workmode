@@ -1,0 +1,25 @@
+{
+  "name": "workmode",
+  "version": "0.0.1",
+  "description": "command line tool for blocking sites to be more productive",
+  "main": "workmode",
+  "bin": {
+    "workmode": "./bin/workmode"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "",
+  "keywords": [
+    "block",
+    "sites",
+    "hosts",
+    "window"
+  ],
+  "author": "Goran Gajić",
+  "license": "BSD",
+  "dependencies": {
+    "commander": "~1.0.5",
+    "underscore": "~1.4.2"
+  }
+}
