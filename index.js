@@ -114,7 +114,7 @@ var init = function() {
     readHosts(function(before, after) {
       var afterLines = after.split('\n');
       var siteLines = _.filter(afterLines, function(line) {
-        return line.indexOf('127.0.0.1') != -1
+        return line.indexOf('127.0.0.1') != -1;
       });
       _.each(siteLines, function(site, index) {
         console.log('[' + (index+1) + '] ' + site.split(' ')[1]);
@@ -126,7 +126,7 @@ var init = function() {
   };
 
   program.on('remove', function() {
-    if(program.remove != true) {
+    if(program.remove !== true) {
       removeSite(program.remove);
     } else {
       list(function() {

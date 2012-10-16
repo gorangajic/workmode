@@ -1,6 +1,6 @@
 {
   "name": "workmode",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "command line tool for blocking sites to be more productive",
   "main": "workmode",
   "bin": {
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": "",
+  "repository": "https://github.com/feroc1ty/workmode.git",
   "keywords": [
     "block",
     "sites",
