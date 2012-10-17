@@ -2,7 +2,7 @@ var fs = require('fs');
 var program = require('commander');
 var _ = require('underscore');
 
-var hostsFile = process.platform == "linux" ? "/etc/hosts" : "C:\\Windows\\System32\\drivers\\etc\\hosts";
+var hostsFile = process.platform == "win32" ? "C:\\Windows\\System32\\drivers\\etc\\hosts" : "/etc/hosts";
 
  var readHosts = function(callback) {
     fs.readFile(hostsFile, function(error, hosts) {
