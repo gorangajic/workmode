@@ -1,6 +1,6 @@
 {
   "name": "workmode",
-  "version": "0.0.8",
+  "version": "0.1.2",
   "preferGlobal": "true",
   "description": "command line tool for blocking sites to be more productive",
   "main": "./index",
