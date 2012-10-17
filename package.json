@@ -1,15 +1,19 @@
 {
   "name": "workmode",
-  "version": "0.0.3",
+  "version": "0.0.8",
+  "preferGlobal": "true",
   "description": "command line tool for blocking sites to be more productive",
-  "main": "workmode",
+  "main": "./index",
   "bin": {
     "workmode": "./bin/workmode"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": "https://github.com/feroc1ty/workmode.git",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/feroc1ty/workmode.git"
+  },
   "keywords": [
     "block",
     "sites",
@@ -17,7 +21,6 @@
     "window"
   ],
   "author": "Goran Gajić",
-  "license": "BSD",
   "dependencies": {
     "commander": "~1.0.5",
     "underscore": "~1.4.2"
