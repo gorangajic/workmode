@@ -50,9 +50,9 @@ var init = function() {
     .option('status', "return the current status of the workblocker")
     .option('start', "uncomment the hosts file")
     .option('stop', "comment the blocked sites")
-    .option('add [domen]', "add domen to block list")
-    .option('remove [value]', "remove one or more domens from list")
-    .option('list', 'list blocked domens');
+    .option('add [domen]', "add domain to block list")
+    .option('remove [value]', "remove one or more domains from list")
+    .option('list', 'list blocked domains');
 
   program.on('stop', function() {
     readHosts(function(before, after) {
@@ -60,10 +60,10 @@ var init = function() {
         after = after.replace('#blocked on', "#blocked off");
         after = after.replace(/127/g, '#127');
         writeHosts(before, after, function() {
-          console.log('working mode stoped');
+          console.log('working mode stopped');
         });
       } else {
-        console.log('already stoped');
+        console.log('already stopped');
       }
     });
   });
@@ -78,7 +78,7 @@ var init = function() {
           console.log('working mode started');
         });
       } else {
-        console.log('already running..');
+        console.log('already running...');
       }
     });
   });
@@ -88,7 +88,7 @@ var init = function() {
       if(after.indexOf('#blocked on') != -1) {
         console.log('work mode running');
       } else {
-        console.log('work mode stoped');
+        console.log('work mode stopped');
       }
     });
   });
@@ -96,7 +96,7 @@ var init = function() {
   program.on('add', function() {
     readHosts(function(before, after) {
       if(after.indexOf(' ' + program.add) !== -1) {
-        console.log('domen ' + program.add + ' alredy exist ');
+        console.log('domain ' + program.add + ' already exists');
       } else {
         var address = "127.0.0.1";
         if(after.indexOf('#blocked off') !== -1) {
@@ -105,7 +105,7 @@ var init = function() {
         
         after = after + "\n" + address + " " + program.add;
         writeHosts(before, after, function() {
-          console.log('domen ' + program.add + ' successuful added.');
+          console.log('domain ' + program.add + ' successfully added.');
         });
       }
     });
