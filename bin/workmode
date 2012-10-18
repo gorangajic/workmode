@@ -1,3 +1,14 @@
 #!/usr/bin/env node
+var workmode = require('../index');
 
-require('../index').init();
+var hostsPaths = {
+  darwin:  "/private/etc/",
+  windows: "C:\\Windows\\System32\\drivers\\etc\\"
+};
+
+var path = (hostsPaths[process.platform] ||  "/etc/") + "hosts";
+
+new workmode({
+	hostsPath:   path,
+	commandLine: true
+});
