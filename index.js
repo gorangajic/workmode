@@ -1,178 +1,257 @@
 var fs = require('fs');
-var program = require('commander');
-var _ = require('underscore');
+var puts = require('sys').puts;
 
-var hostsFile = process.platform == "win32" ? "C:\\Windows\\System32\\drivers\\etc\\hosts" : "/etc/hosts";
+var bakExtension = ".bak.workmode"
 
- var readHosts = function(callback) {
-    fs.readFile(hostsFile, function(error, hosts) {
-      if(error) {
-        console.log('error reading hosts file: ' + hostsFile);
-        console.log(error);
-        return ;
-      }
-      var blockedLocation, before, after;
+var createIfNeeded = function(file){
+  if (!fs.existsSync(file)){
+    try{
+      puts("Creating `" + file + "`.");
+      fs.writeFileSync(file,"");
+    } catch (e){
+      puts("The file `" + file + "` does not exist and could not be created.");
+      puts(e);
+      process.exit();
+    }
+  }
+}
 
-      if(callback) {
-        hosts = hosts.toString();
-        blockedLocation = hosts.indexOf("#blocked");
-        
-        if(blockedLocation == -1) {
-          before = hosts;
-          after = "#blocked off\n";
-        } else {
-          before = hosts.substring(0,blockedLocation);
-          after = hosts.substring(blockedLocation);
-        }
-        callback(before, after);
-      }
-    });
-  };
-
-  var writeHosts = function(before, after, callback) {
-    fs.writeFile(hostsFile, before + after, function(error) {
-      if(error) {
-        console.log('error writing hosts file: ' + hostsFile);
-        console.log(error);
-        return ;
-      }
-      if(callback) {
-        callback();
-        // console.log(before, after);
-      }
-    });
-  };
+function WorkMode(options){
+  this.hostsPath = options.hostsPath || hostsPath;
+  this.readHosts(this.hostsPath);
+  if (options.commandLine) this.commandLine();
+  return this;
+}
 
 
-var init = function() {
+
+WorkMode.prototype.readHosts = function () {
+  createIfNeeded(this.hostsPath);
+  try {
+    var hosts = fs.readFileSync(this.hostsPath);
+  } catch (e) {
+      puts('Error while reading hosts file: ' + this.hostsPath);
+      puts(e);    
+      process.exit()
+  }
+  this.parseHosts(hosts);
+};
+
+WorkMode.prototype.writeHosts = function() {
+  var hosts = fs.readFileSync(this.hostsPath);
+  // Create the backup file.
+  try{
+    fs.writeFileSync( this.hostsPath + bakExtension, hosts);
+  } catch (e){
+    puts("The backup file could not be created.")
+    puts(e);    
+    process.exit()
+  }
+  var prefix = this.prefix;
+  var list = this.list.map(function(domain){return prefix + "127.0.0.1 " + domain})
+  list.unshift("### workmode blacklist start ###");
+  list.push("");
+  list = list.join("\n");
+  // Re-read the hosts file in case it has been modified in the mean time.
+  // This is overly paranoid, and still not completely bullet-proof, since the 
+  // file could be modified between this read and the write that follows, but
+  // it's better than nothing.
+  this.readHosts(this.hostsPath);
+  try {
+    fs.writeFileSync(this.hostsPath, this.before + list + this.after);
+  } catch (e) {
+    puts('Error while writing hosts file: `' + this.hostsPath + '`.');
+    puts('Fortunately, a backup file had been created: `' + this.hostsPath + bakExtension + '`.');
+    puts(e);
+    process.exit();
+  }
+};
+
+WorkMode.prototype.parseHosts = function(hosts){
+  var blStart, blEnd, before, list, after;
+  hosts = hosts.toString();
+  blStart = hosts.indexOf("### workmode blacklist start ###");
+  blEnd = hosts.indexOf("### workmode blacklist end ###");
+  
+  if(blStart === -1) {
+    this.before = hosts + '\n';
+    list = [];
+    this.after = "### workmode blacklist end ###\n\n";
+  } else {
+    this.before = hosts.substring(0,blStart);
+    list = hosts.substring(blStart,blEnd).split("\n").slice(1,-1);
+    this.after = hosts.substring(blEnd);
+  }
+  if (list.length > 0) {
+    this.prefix = list[0][0] === '#' ? '# ' : '';
+  } else {
+    var hosts = fs.readFileSync(this.hostsPath)
+    try{
+      fs.writeFileSync( this.hostsPath + bakExtension + ".firstTime", hosts);
+    } catch (e){
+      puts("The backup file could not be created.")
+      puts(e);    
+      process.exit()
+    }
+    // If the list is empty, we insert the new entries commented out.
+    this.prefix = "# ";
+  }
+  var regex = new RegExp(this.prefix + "127\\.0\\.0\\.1 (.+)");
+  list = list.map(function(line) {
+    return line.match(regex)[1];
+  });
+  this.list = list;
+};
+
+WorkMode.prototype.enabled = function () {
+  return !(this.list.length === 0 || this.prefix === "# ");
+};
+
+WorkMode.prototype.stop = function() {
+  if (this.list.length === 0) {
+    return 'The blacklist is empty.';
+  }
+  if (this.enabled()) {
+    list = this.prefix = "# ";
+    return 'Workmode is now disabled.';
+  } else {
+    return "Workblock isn't running.";
+  }
+};
+
+WorkMode.prototype.start = function() {
+  if (this.list.length === 0) {
+    return '$The blacklist is empty.';
+  }
+  if (!this.enabled()) {
+    this.prefix = "";
+    return 'Workmode is now enabled.';
+  } else {
+    return '$Workmode is already running.';
+  }
+};
+
+WorkMode.prototype.add = function(domain) {
+  if(this.list.indexOf(domain) !== -1) {
+    return "$Domain `" + domain + '` is already blacklisted.';
+  } else {
+    this.list.push(domain);
+    this.list.sort();
+    return "Domain `" + domain + '` has been added to the blacklist.'; 
+  }
+
+};
+WorkMode.prototype.displayList = function() {
+  return this.list.map(function(domain, index) {
+    return index+1 + '. ' + domain;
+  }).join('\n');
+};
+
+WorkMode.prototype.remove = function(domain) {
+  // param is either a domain or an index.
+  var index, numeric
+  if(parseInt(domain) == domain) {
+    // It's an index.
+    index = parseInt(domain)-1;
+    domain = this.list[index];
+    numeric = true;
+  } else {
+    index = this.list.indexOf(domain);
+    numeric = false;
+  }
+  if(-1 < index && index <= this.list.length) {
+    this.list.splice(index,1)
+    return "Domain `" + domain + "` has been removed the blacklist.";
+  } else {
+    return (numeric ? "Index `" + (index + 1) : "Domain `" + domain) + "` was not found in the blacklist.";
+  }
+}
+
+function parseError(msg) {
+  if (msg[0] !== "$") return false;
+  return msg.slice(1);
+}
+
+WorkMode.prototype.commandLine = function() {
+  var self = this;
+  var program = require('commander');
   program
-    .version('0.0.1')
-    .option('status', "return the current status of the workblocker")
-    .option('start', "uncomment the hosts file")
-    .option('stop', "comment the blocked sites")
-    .option('add [domen]', "add domain to block list")
-    .option('remove [value]', "remove one or more domains from list")
-    .option('list', 'list blocked domains');
+    .version('0.2.0')
+    .option('status', "Tells whether Workmode is active.")
+    .option('start', "Enables the black list. Off to work!")
+    .option('stop', "Disbles the black list.")
+    .option('add [domain]', "Adds the domain to the black list.")
+    .option('remove [index|domain]', "Removes one the domain at the given index. "
+                                   + "If no parameter is passed, displays the blacklist "
+                                   + "and prompts for one.")
+    .option('list', 'Displays the blacklist.');
 
   program.on('stop', function() {
-    readHosts(function(before, after) {
-      if(after.indexOf('#blocked off') == -1) {
-        after = after.replace('#blocked on', "#blocked off");
-        after = after.replace(/127/g, '#127');
-        writeHosts(before, after, function() {
-          console.log('working mode stopped');
-        });
-      } else {
-        console.log('already stopped');
-      }
-    });
+    var error, msg = self.stop();
+    if (!(error = parseError(msg))) {
+      self.writeHosts();
+    }
+    puts(error || msg);
   });
 
   program.on('start', function() {
-    readHosts(function(before, after) {
-      if(after.indexOf('#blocked on') == -1) {
-        after = after.replace('#blocked off', "#blocked on");
-        after = after.replace(/#127/g, '127');
-
-        writeHosts(before, after, function() {
-          console.log('working mode started');
-        });
-      } else {
-        console.log('already running...');
-      }
-    });
+    var error, msg = self.start();
+    if (!(error = parseError(msg))) {
+      self.writeHosts();
+    }
+    puts(error || msg);
   });
 
   program.on('status', function() {
-    readHosts(function(before, after) {
-      if(after.indexOf('#blocked on') != -1) {
-        console.log('work mode running');
-      } else {
-        console.log('work mode stopped');
-      }
-    });
-  });
-
-  program.on('add', function() {
-    readHosts(function(before, after) {
-      if(after.indexOf(' ' + program.add) !== -1) {
-        console.log('domain ' + program.add + ' already exists');
-      } else {
-        var address = "127.0.0.1";
-        if(after.indexOf('#blocked off') !== -1) {
-          address = "#" + address;
-        }
-        
-        after = after + "\n" + address + " " + program.add;
-        writeHosts(before, after, function() {
-          console.log('domain ' + program.add + ' successfully added.');
-        });
-      }
-    });
-  });
-  var list = function(callback) {
-    readHosts(function(before, after) {
-      var afterLines = after.split('\n');
-      var siteLines = _.filter(afterLines, function(line) {
-        return line.indexOf('127.0.0.1') != -1;
-      });
-      _.each(siteLines, function(site, index) {
-        console.log('[' + (index+1) + '] ' + site.split(' ')[1]);
-      });
-      if(callback) {
-        callback(before, after);
-      }
-    });
-  };
-
-  program.on('remove', function() {
-    if(program.remove !== true) {
-      removeSite(program.remove);
+    if (self.list.length == 0) {
+      puts('The blacklist is empty.');
+    } else if (self.enabled()) {
+      puts('Workmode is enabled.');
     } else {
-      list(function() {
-        program.prompt('enter site number or site name you want to remove: ', function(remove){
-          removeSite(remove);
-        });
-      });
+      puts('Workmode is disabled.');
     }
   });
 
-  var removeSite = function(remove) {
-    readHosts(function(before, after) {
-      var number = parseInt(remove, 10);
-      var afterLines = after.split('\n');
-      var settings = afterLines[0];
-      var siteLines = _.filter(afterLines, function(line) {
-        return line.indexOf('127.0.0.1') != -1;
-      });
-      // console.log(remove);
-      if(_.isNaN(number)) {
-        siteLines = _.reject(siteLines, function(site) {
-          if(site.indexOf(remove) != -1) {
-            console.log('site removed: ' + site.split(" ")[1]);
-            return true;
-          }
-        });
-      } else {
-        siteLines = _.reject(siteLines, function(site, index) {
-          if(index == (number-1)) {
-            console.log('site removed: ' + site.split(" ")[1]);
-            return true;
-          }
-        });
+  program.on('add', function() {
+    if (program.add !== true) {
+      var error, msg = self.add(program.add);
+      if (!(error = parseError(msg))) {
+        self.writeHosts();
       }
-      writeHosts(before, settings+'\n\n' + siteLines.join('\n'), function(){
-        process.exit();
-      });
+      puts(error || msg);      
+    }
+    else puts("Please specify a domain.");
+  });
+
+  program.on('remove', function() {
+    var prompt;
+    if(program.remove !== true) {
+      //  Dummy prompt if a parameter was passed.
+      prompt = function(_, cb){
+        cb(program.remove)
+      }
+    } else {
+      prompt = function(msg, cb){
+        puts(self.displayList());
+        program.prompt(msg,cb)
+      }
+    }
+    prompt('Which domain you want to remove: ', function(remove){
+      var error, msg = self.remove(remove);
+      if (!(error = parseError(msg))) {
+        self.writeHosts();
+      }
+      puts(error || msg);
+      process.exit();
     });
-  };
+  });
 
-  program.on('list', list);
-
-
+  program.on('list', function(){
+    puts(self.displayList());
+  });
 
   program.parse(process.argv);
 
 };
-  
-exports.init = init;
+
+module.exports = WorkMode;
