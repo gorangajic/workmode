@@ -3,9 +3,9 @@ var workmode = require('../index');
 
 var hostsPaths = {
   darwin:  "/private/etc/",
-  windows: "C:\\Windows\\System32\\drivers\\etc\\"
+  win32: "C:\\Windows\\System32\\drivers\\etc\\"
 };
-
+// console.log(process.platform);
 var path = (hostsPaths[process.platform] ||  "/etc/") + "hosts";
 
 new workmode({
